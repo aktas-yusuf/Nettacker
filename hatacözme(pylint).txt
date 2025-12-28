@@ -1,0 +1,453 @@
+PYLINT HATALARI ÇÖZÜMLERİ
+
+
+1. MISSING-MODULE-DOCSTRING (C0114)
+   Dosya: nettacker/__init__.py:1
+   Mevcut Kod:
+   ```python
+   all_module_severity_and_desc = {}
+   ```
+   Çözüm:
+   ```python
+   """OWASP Nettacker - Otomatik penetrasyon testi çerçevesi.
+   
+   Bu modül ana modül önem derecesi ve açıklama sözlüğünü içerir.
+   """
+   all_module_severity_and_desc = {}
+   ```
+
+2. LINE-TOO-LONG (C0301)
+   Dosya: nettacker/config.py:67
+   Mevcut Kod:
+   ```python
+   api_client_whitelisted_ips = []  # devre dışı - etkinleştirmek için ip/cidr/aralık listesi içeren bir dizi ekleyin
+   ```
+   Çözüm:
+   ```python
+   # devre dışı - etkinleştirmek için ip/cidr/aralık listesi içeren bir dizi ekleyin
+   api_client_whitelisted_ips = []
+   ```
+
+3. MISSING-CLASS-DOCSTRING (C0115)
+   Dosya: nettacker/config.py:24
+   Mevcut Kod:
+   ```python
+   class ConfigBase:
+       @classmethod
+       def as_dict(cls):
+           return {attr_name: getattr(cls, attr_name) for attr_name in cls()}
+   ```
+   Çözüm:
+   ```python
+   class ConfigBase:
+       """Sözlük dönüşümü sağlayan temel yapılandırma sınıfı."""
+       
+       @classmethod
+       def as_dict(cls):
+           """Sınıf özniteliklerini sözlüğe dönüştürür.
+           
+           Returns:
+               dict: Tüm sınıf özniteliklerini içeren sözlük.
+           """
+           return {attr_name: getattr(cls, attr_name) for attr_name in cls()}
+   ```
+
+4. MISSING-FUNCTION-DOCSTRING (C0116)
+   Dosya: nettacker/config.py:26
+   Mevcut Kod:
+   ```python
+   @classmethod
+   def as_dict(cls):
+       return {attr_name: getattr(cls, attr_name) for attr_name in cls()}
+   ```
+   Çözüm:
+   ```python
+   @classmethod
+   def as_dict(cls):
+       """Sınıf özniteliklerini sözlüğe dönüştürür.
+       
+       Returns:
+           dict: Tüm sınıf özniteliklerini içeren sözlük.
+       """
+       return {attr_name: getattr(cls, attr_name) for attr_name in cls()}
+   ```
+
+5. TOO-FEW-PUBLIC-METHODS (R0903)
+   Dosya: nettacker/config.py:62
+   Mevcut Kod:
+   ```python
+   class ApiConfig(ConfigBase):
+       api_access_key = ""
+       # ...
+   ```
+   Çözüm (pylint disable ekle - bu bir data class olduğu için normal):
+   ```python
+   class ApiConfig(ConfigBase):  # pylint: disable=too-few-public-methods
+       """API yapılandırma ayarları."""
+       api_access_key = ""
+       # ...
+   ```
+
+6. CONSIDER-USING-F-STRING (C0209)
+   Dosya: nettacker/api/core.py:182-183
+   Mevcut Kod:
+   ```python
+   res += """<option {2} id="{0}" data-content='<span class="flag-icon flag-icon-{1}"
+       value="{0}"></span> {0}'></option>""".format(
+           language, flags[language], "selected" if language == "en" else ""
+       )
+   ```
+   Çözüm:
+   ```python
+   selected = "selected" if language == "en" else ""
+   res += f"""<option {selected} id="{language}" data-content='<span class="flag-icon flag-icon-{flags[language]}"
+       value="{language}"></span> {language}'></option>"""
+   ```
+
+7. IMPORT-ERROR (E0401)
+   Dosya: nettacker/api/core.py:3
+   Hata: 'flask' modülü import edilemiyor
+   Çözüm: Bu genellikle pylint'in sanal ortamı bulamamasından kaynaklanır.
+   .pylintrc dosyasına ekle:
+   ```ini
+   [TYPECHECK]
+   ignored-modules=flask
+   ```
+   VEYA poetry ortamını kullan:
+   ```bash
+   poetry run pylint nettacker/
+   ```
+
+8. INCONSISTENT-RETURN-STATEMENTS (R1710)
+   Dosya: nettacker/api/core.py:110
+   Mevcut Kod (tahmin):
+   ```python
+   def get_file(filename):
+       if condition:
+           return data
+       return  # None döndürüyor ancak açık değil
+   ```
+   Çözüm:
+   ```python
+   def get_file(filename):
+       if condition:
+           return data
+       return None  # Açıkça None döndür
+   ```
+
+9. USELESS-RETURN (R1711)
+   Dosya: nettacker/api/core.py:130
+   Mevcut Kod:
+   ```python
+   def api_key_is_valid(app, flask_request):
+       """
+       API anahtarının geçerliliğini kontrol eder
+       ...
+       """
+       if app.config["OWASP_NETTACKER_CONFIG"]["api_access_key"] != get_value(flask_request, "key"):
+           # ...
+       return  # Gereksiz return
+   ```
+   Çözüm: Return'ü kaldır veya None döndür
+   ```python
+   def api_key_is_valid(app, flask_request):
+       """
+       API anahtarının geçerliliğini kontrol eder
+       ...
+       """
+       if app.config["OWASP_NETTACKER_CONFIG"]["api_access_key"] != get_value(flask_request, "key"):
+           # ...
+       # Return kaldırıldı veya return None
+   ```
+
+10. MISSING-TIMEOUT (W3101)
+    Dosya: nettacker/core/ip.py:42
+    Mevcut Kod:
+    ```python
+    return generate_ip_range(
+        json.loads(
+            requests.get(
+                f"https://rest.db.ripe.net/search.json?query-string={ip}&flags=no-filtering"
+            ).content
+        )["objects"]["object"][0]["primary-key"]["attribute"][0]["value"].replace(" ", "")
+    )
+    ```
+    Çözüm:
+    ```python
+    return generate_ip_range(
+        json.loads(
+            requests.get(
+                f"https://rest.db.ripe.net/search.json?query-string={ip}&flags=no-filtering",
+                timeout=10  # Zaman aşımı ekle
+            ).content
+        )["objects"]["object"][0]["primary-key"]["attribute"][0]["value"].replace(" ", "")
+    )
+    ```
+
+11. BROAD-EXCEPTION-CAUGHT (W0718)
+    Dosya: nettacker/core/lib/base.py:80
+    Mevcut Kod:
+    ```python
+    try:
+        key_value = eval(key_name)
+    except Exception:
+        key_value = "error"
+    ```
+    Çözüm:
+    ```python
+    try:
+        key_value = eval(key_name)
+    except (ValueError, TypeError, SyntaxError, NameError) as e:
+        # Belirli hata türlerini yakala
+        key_value = "error"
+    ```
+
+12. EVAL-USED (W0123)
+    Dosya: nettacker/core/lib/base.py:79
+    Mevcut Kod:
+    ```python
+    try:
+        key_value = eval(key_name)
+    except Exception:
+        key_value = "error"
+    ```
+    Çözüm (ast.literal_eval kullan - daha güvenli):
+    ```python
+    import ast
+    try:
+        key_value = ast.literal_eval(key_name)
+    except (ValueError, SyntaxError):
+        key_value = "error"
+    ```
+    NOT: Eğer gerçekten eval gerekiyorsa (dinamik kod çalıştırma), güvenlik önlemleri al:
+    ```python
+    import ast
+    # Sadece sabit değerler için
+    try:
+        key_value = ast.literal_eval(key_name)
+    except (ValueError, SyntaxError):
+        # Eğer sabit değilse ve eval gerekliyse
+        # Güvenlik kontrolü yap
+        if is_safe_to_eval(key_name):
+            key_value = eval(key_name)
+        else:
+            key_value = "error"
+    ```
+
+13. UNSPECIFIED-ENCODING (W1514)
+    Dosya: nettacker/core/messages.py:23
+    Mevcut Kod:
+    ```python
+    def load_yaml(filename):
+        return yaml.load(StringIO(open(filename, "r", encoding="utf-8").read()), Loader=yaml.FullLoader)
+    ```
+    NOT: Bu kodda zaten encoding="utf-8" var, ancak with kullanılmalı:
+    Çözüm:
+    ```python
+    def load_yaml(filename):
+        with open(filename, "r", encoding="utf-8") as file:
+            return yaml.load(StringIO(file.read()), Loader=yaml.FullLoader)
+    ```
+
+14. CONSIDER-USING-WITH (R1732)
+    Dosya: nettacker/core/messages.py:23
+    Mevcut Kod:
+    ```python
+    def load_yaml(filename):
+        return yaml.load(StringIO(open(filename, "r", encoding="utf-8").read()), Loader=yaml.FullLoader)
+    ```
+    Çözüm:
+    ```python
+    def load_yaml(filename):
+        with open(filename, "r", encoding="utf-8") as file:
+            return yaml.load(StringIO(file.read()), Loader=yaml.FullLoader)
+    ```
+
+15. INVALID-NAME (C0103)
+    Dosya: nettacker/core/utils/common.py:211
+    Mevcut Kod:
+    ```python
+    class value_to_class:
+        def __init__(self, value):
+            # ...
+    ```
+    Çözüm:
+    ```python
+    class ValueToClass:  # PascalCase isimlendirme kullan
+        def __init__(self, value):
+            # ...
+    ```
+
+16. TOO-MANY-STATEMENTS (R0915)
+    Dosya: nettacker/core/arg_parser.py:506
+    Hata: Too many statements (160/50)
+    Çözüm: Fonksiyonu böl
+    ```python
+    # Önce: parse_arguments() içinde 160 ifade var
+    # Sonra: Fonksiyonu modülerleştir
+    def parse_arguments(self):
+        self._parse_basic_arguments()
+        self._parse_module_arguments()
+        self._parse_target_arguments()
+        self._parse_output_arguments()
+        # ...
+    
+    def _parse_basic_arguments(self):
+        # Temel argüman ayrıştırma mantığı
+        pass
+    
+    def _parse_module_arguments(self):
+        # Modül argüman ayrıştırma mantığı
+        pass
+    ```
+
+17. TOO-MANY-BRANCHES (R0912)
+    Dosya: nettacker/core/arg_parser.py (tahmin)
+    Çözüm: Erken dönüş deseni kullan
+    ```python
+    # Önce: Çok fazla if-elif-else
+    # Sonra:
+    def function(self):
+        if not condition1:
+            return default_value
+        if not condition2:
+            return default_value
+        # Erken dönüş ile iç içe dalları azalt
+        return process_value()
+    ```
+
+18. TOO-MANY-NESTED-BLOCKS (R1702)
+    Dosya: nettacker/core/lib/base.py:61
+    Hata: Too many nested blocks (6/5)
+    Çözüm: Erken dönüş veya yardımcı fonksiyonlar
+    ```python
+    # Önce: 6 seviye iç içe if
+    # Sonra: Yardımcı fonksiyonlar
+    def _process_condition1(self, sub_step, key):
+        if not condition1:
+            return None
+        return self._process_condition2(sub_step, key)
+    
+    def _process_condition2(self, sub_step, key):
+        if not condition2:
+            return None
+        # ...
+    ```
+
+19. FIXME (W0511)
+    Dosya: nettacker/api/engine.py:423
+    Mevcut Kod:
+    ```python
+    def get_results_csv():  # todo: need to fix time format
+    ```
+    Çözüm:
+   ```python
+   def get_results_csv():
+       """ISO 8601 zaman formatı ile CSV formatında sonuçları alır."""
+       # Zaman formatı düzeltildi: ISO 8601 kullanılıyor
+       time_format = "%Y-%m-%dT%H:%M:%S"
+       # ...
+   ```
+
+20. CYCLIC-IMPORT (R0401)
+    Dosya: nettacker/lib/payloads/__init__.py:6082
+    Hata: Cyclic import (nettacker.config -> nettacker.core.utils.common)
+    Çözüm: Geciktirilmiş import kullan
+    ```python
+    # config.py içinde:
+    # Önce:
+    from nettacker.core.utils.common import something
+    
+    # Sonra:
+    def function_that_needs_common():
+        from nettacker.core.utils.common import something  # Geciktirilmiş import
+        # ...
+    ```
+
+21. DUPLICATE-CODE (R0801)
+    Dosya: nettacker/lib/payloads/__init__.py:6004
+    Hata: Similar lines in nettacker.core.lib.http ve nettacker.core.lib.socket
+    Çözüm: Ortak fonksiyon çıkar
+    ```python
+    # Ortak modülde (örn: nettacker/core/lib/common.py):
+    def process_response_log(sub_step, condition_results):
+        """sub_step'ten yanıt günlüğünü işler.
+        
+        Args:
+            sub_step: Adım yapılandırması
+            condition_results: Sonuç sözlüğü
+            
+        Returns:
+            Güncellenmiş condition_results
+        """
+        if sub_step["response"].get("log", False):
+            condition_results["log"] = sub_step["response"]["log"]
+            if "response_dependent" in condition_results["log"]:
+                condition_results["log"] = replace_dependent_response(
+                    condition_results["log"], condition_results
+                )
+        return condition_results
+    
+    # http.py ve socket.py'de:
+    from nettacker.core.lib.common import process_response_log
+    condition_results = process_response_log(sub_step, condition_results)
+    ```
+
+22. CONSIDER-USING-DICT-ITEMS (C0206)
+    Dosya: nettacker/core/utils/common.py (tahmin)
+    Çözüm:
+    ```python
+    # Önce:
+    for key in dictionary:
+        value = dictionary[key]
+    
+    # Sonra:
+    for key, value in dictionary.items():
+        # ...
+    ```
+
+23. REDEFINED-OUTER-NAME (W0621)
+    Dosya: nettacker/core/module.py (tahmin)
+    Çözüm:
+    ```python
+    # Önce:
+    name = "outer"
+    def function():
+        name = "inner"  # Dış kapsamdakini geçersiz kılıyor
+    
+    # Sonra:
+    name = "outer"
+    def function():
+        local_name = "inner"  # Farklı isim kullan
+    ```
+
+24. NO-ELSE-RETURN (R1705)
+    Dosya: nettacker/core/lib/base.py (tahmin)
+    Çözüm:
+    ```python
+    # Önce:
+    if condition:
+        return value1
+    else:
+        return value2
+    
+    # Sonra:
+    if condition:
+        return value1
+    return value2
+    ```
+
+25. UNNECESSARY-COMPREHENSION (R1724)
+    Dosya: nettacker/core/ip.py (tahmin)
+    Çözüm:
+    ```python
+    # Önce:
+    result = [x for x in iterable]
+    
+    # Sonra:
+    result = list(iterable)
+    ```
+
+
+- Güvenlik açısından kritik olanlar (eval, timeout) öncelikli düzeltilmeli
+- Cyclic import ve duplicate code gibi yapısal sorunlar refactoring gerektirir

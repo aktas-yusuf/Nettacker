@@ -1,0 +1,280 @@
+BANDIT GÜVENLİK HATALARI VE ÇÖZÜMLERİ
+=====================================
+
+1. B311 - GÜVENSİZ RANDOM GENERATOR (LOW)
+   Dosya: nettacker/api/engine.py:496
+   Mevcut Kod:
+   ```python
+   + "".join(random.choice(string.ascii_lowercase) for _ in range(10))
+   ```
+   Sorun: Standart pseudo-random generator güvenlik/kriptografik amaçlar için uygun değil
+   Çözüm:
+   ```python
+   import secrets
+   + "".join(secrets.choice(string.ascii_lowercase) for _ in range(10))
+   ```
+   NOT: secrets modülü kriptografik olarak güvenli random sayılar üretir
+
+2. B104 - TÜM INTERFACE'LERE BAĞLANMA (MEDIUM)
+   Dosya: nettacker/config.py:74
+   Mevcut Kod:
+   ```python
+   api_hostname = "0.0.0.0"
+   ```
+   Sorun: Tüm ağ interface'lerine bağlanıyor, güvenlik riski
+   Çözüm:
+   ```python
+   # Sadece localhost'a bağlan (geliştirme için)
+   api_hostname = "127.0.0.1"
+   
+   # VEYA ortam değişkeninden al (production için)
+   import os
+   api_hostname = os.getenv("API_HOSTNAME", "127.0.0.1")
+   ```
+   NOT: Production'da mutlaka belirli bir IP veya interface kullan
+
+3. B105 - HARDCODED PASSWORD (LOW)
+   Dosya: nettacker/config.py:105
+   Mevcut Kod:
+   ```python
+   password = ""
+   ```
+   Sorun: Boş string hardcoded password olarak algılanıyor
+   Çözüm:
+   ```python
+   # Bu bir varsayılan değer, gerçek password değil
+   # Yorum ekle veya None kullan
+   password = None  # Varsayılan değer, kullanıcı tarafından ayarlanmalı
+   
+   # VEYA
+   password = ""  # noqa: B105  # Varsayılan boş password
+   ```
+
+4. B110 - TRY-EXCEPT-PASS (LOW)
+   Dosya: nettacker/core/arg_parser.py:750
+   Mevcut Kod:
+   ```python
+   try:
+       value = float(value)
+   except Exception:
+       pass
+   ```
+   Sorun: Hatalar sessizce yutuluyor, debug zorlaşıyor
+   Çözüm:
+   ```python
+   try:
+       value = float(value)
+   except (ValueError, TypeError) as e:
+       # Hata logla veya uygun varsayılan değer kullan
+       logger.debug(f"Float dönüşümü başarısız: {e}, varsayılan değer kullanılıyor")
+       value = None  # veya uygun varsayılan değer
+   ```
+
+5. B113 - TIMEOUT OLMADAN REQUEST (MEDIUM)
+   Dosya: nettacker/core/ip.py:42
+   Mevcut Kod:
+   ```python
+   requests.get(
+       f"https://rest.db.ripe.net/search.json?query-string={ip}&flags=no-filtering"
+   ).content
+   ```
+   Sorun: Timeout olmadan request, sonsuz beklemeye neden olabilir
+   Çözüm:
+   ```python
+   requests.get(
+       f"https://rest.db.ripe.net/search.json?query-string={ip}&flags=no-filtering",
+       timeout=10  # 10 saniye timeout
+   ).content
+   ```
+
+6. B307 - EVAL KULLANIMI (MEDIUM)
+   Dosya: nettacker/core/lib/base.py:79
+   Mevcut Kod:
+   ```python
+   try:
+       key_value = eval(key_name)
+   except Exception:
+       key_value = "error"
+   ```
+   Sorun: eval() güvenlik riski oluşturur, key injection saldırılarına açık
+   Çözüm:
+   ```python
+   import ast
+   try:
+       # Sadece literal değerler için güvenli
+       key_value = ast.literal_eval(key_name)
+   except (ValueError, SyntaxError):
+       # Eğer literal değilse ve gerçekten eval gerekiyorsa
+       # Güvenlik kontrolü yap
+       if is_safe_expression(key_name):  # Whitelist kontrolü
+           key_value = eval(key_name)
+       else:
+           key_value = "error"
+   ```
+   NOT: Mümkünse eval() kullanımından tamamen kaçın
+
+7. B402 - FTP IMPORT (HIGH)
+   Dosya: nettacker/core/lib/ftp.py:1
+   Mevcut Kod:
+   ```python
+   import ftplib
+   ```
+   Sorun: FTP şifrelenmemiş protokol, güvensiz
+   Çözüm:
+   ```python
+   # FTP yerine SFTP kullan (mümkünse)
+   # VEYA kullanıcıya uyarı ver
+   import ftplib  # noqa: B402  # FTP desteği için gerekli, kullanıcı uyarıldı
+   
+   # VEYA sadece FTPS (FTP over SSL) kullan
+   import ssl
+   import ftplib
+   
+   # FTPS bağlantısı kur
+   ftps = ftplib.FTP_TLS()
+   ftps.ssl_version = ssl.PROTOCOL_TLS
+   ```
+
+8. B401 - TELNET IMPORT (HIGH)
+   Dosya: nettacker/core/lib/telnet.py:1
+   Mevcut Kod:
+   ```python
+   import telnetlib
+   ```
+   Sorun: Telnet şifrelenmemiş protokol, güvensiz
+   Çözüm:
+   ```python
+   # Telnet yerine SSH kullan (mümkünse)
+   # VEYA kullanıcıya uyarı ver
+   import telnetlib  # noqa: B401  # Eski sistem desteği için gerekli, kullanıcı uyarıldı
+   
+   # NOT: Bu bir penetrasyon testi aracı olduğu için eski protokolleri test etmek normal
+   # Ancak kullanıcıya güvenlik riskleri hakkında bilgi verilmeli
+   ```
+
+9. B507 - SSH HOST KEY DOĞRULAMA YOK (HIGH)
+   Dosya: nettacker/core/lib/ssh.py:21
+   Mevcut Kod:
+   ```python
+   connection.set_missing_host_key_policy(AutoAddPolicy())
+   ```
+   Sorun: Bilinmeyen host key'leri otomatik kabul ediliyor, MITM saldırılarına açık
+   Çözüm:
+   ```python
+   from paramiko import RejectPolicy, WarningPolicy
+   
+   # En güvenli: Bilinmeyen host key'leri reddet
+   connection.set_missing_host_key_policy(RejectPolicy())
+   
+   # VEYA uyarı ver ve kullanıcıdan onay iste
+   connection.set_missing_host_key_policy(WarningPolicy())
+   
+   # VEYA known_hosts dosyası kullan
+   connection.load_system_host_keys()
+   connection.set_missing_host_key_policy(WarningPolicy())
+   ```
+   NOT: Penetrasyon testi için AutoAddPolicy kabul edilebilir, ancak production kodunda kullanılmamalı
+
+10. B504 - SSL VERSİYONU BELİRTİLMEMİŞ (LOW)
+    Dosya: nettacker/core/lib/socket.py:29
+    Mevcut Kod:
+    ```python
+    socket_connection = ssl.wrap_socket(socket_connection)
+    ```
+    Sorun: SSL/TLS versiyonu belirtilmemiş, varsayılan SSLv23 güvensiz olabilir
+    Çözüm:
+    ```python
+    import ssl
+    
+    # Modern ve güvenli TLS versiyonları kullan
+    context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    socket_connection = context.wrap_socket(socket_connection)
+    
+    # VEYA
+    socket_connection = ssl.wrap_socket(
+        socket_connection,
+        ssl_version=ssl.PROTOCOL_TLS_CLIENT  # veya PROTOCOL_TLS_SERVER
+    )
+    ```
+
+11. B506 - UNSAFE YAML LOAD (MEDIUM)
+    Dosya: nettacker/core/messages.py:23
+    Mevcut Kod:
+    ```python
+    return yaml.load(StringIO(open(filename, "r", encoding="utf-8").read()), Loader=yaml.FullLoader)
+    ```
+    Sorun: yaml.load() keyfi nesne oluşturulmasına izin verir, güvenlik riski
+    Çözüm:
+    ```python
+    # Güvenli yaml yükleme
+    with open(filename, "r", encoding="utf-8") as file:
+        return yaml.safe_load(StringIO(file.read()))
+    
+    # VEYA FullLoader kullanıyorsanız, güvenilir kaynaklardan geldiğinden emin olun
+    # Ancak safe_load() kullanmak daha güvenlidir
+    ```
+
+12. B102 - EXEC KULLANIMI (MEDIUM)
+    Dosya: nettacker/core/lib/http.py:90
+    Mevcut Kod:
+    ```python
+    exec(
+        "condition_results['responsetime'] = response['responsetime'] if ("
+        + "response['responsetime'] {0} float(conditions['responsetime'].split()[-1])".format(
+            conditions["responsetime"].split()[0]
+        )
+        + ") else []"
+    )
+    ```
+    Sorun: exec() güvenlik riski oluşturur, kod injection saldırılarına açık
+    Çözüm:
+    ```python
+    # exec() yerine normal Python kodu kullan
+    operator = conditions["responsetime"].split()[0]
+    threshold = float(conditions["responsetime"].split()[-1])
+    response_time = response['responsetime']
+    
+    if operator == "==":
+        condition_results['responsetime'] = response_time if response_time == threshold else []
+    elif operator == "!=":
+        condition_results['responsetime'] = response_time if response_time != threshold else []
+    elif operator == ">=":
+        condition_results['responsetime'] = response_time if response_time >= threshold else []
+    elif operator == "<=":
+        condition_results['responsetime'] = response_time if response_time <= threshold else []
+    elif operator == ">":
+        condition_results['responsetime'] = response_time if response_time > threshold else []
+    elif operator == "<":
+        condition_results['responsetime'] = response_time if response_time < threshold else []
+    else:
+        condition_results['responsetime'] = []
+    ```
+
+13. B324 - ZAYIF MD5 HASH (HIGH)
+    Dosya: nettacker/core/utils/common.py:237
+    Mevcut Kod:
+    ```python
+    md5_hash = hashlib.md5(md5_content).hexdigest()
+    ```
+    Sorun: MD5 güvenlik amaçlı kullanım için zayıf, çarpışmalara açık
+    Çözüm:
+    ```python
+    import hashlib
+    
+    # Güvenlik amaçlı değilse (örn: dosya hash kontrolü)
+    md5_hash = hashlib.md5(md5_content, usedforsecurity=False).hexdigest()
+    
+    # VEYA güvenlik gerekiyorsa SHA-256 kullan
+    sha256_hash = hashlib.sha256(md5_content).hexdigest()
+    ```
+    NOT: Eğer sadece dosya hash kontrolü için kullanılıyorsa usedforsecurity=False ekle
+    Eğer güvenlik kritikse (şifre hash, token vb.) SHA-256 veya daha güçlü kullan
+
+ÖNEMLİ NOTLAR:
+- HIGH şiddetindeki hatalar (B401, B402, B507, B324) öncelikli düzeltilmeli
+- eval() ve exec() kullanımları mümkünse tamamen kaldırılmalı
+- Timeout eksiklikleri tüm network çağrılarına eklenmeli
+- FTP ve Telnet gibi eski protokoller penetrasyon testi aracı için normal, ancak kullanıcı uyarılmalı
+- SSH host key doğrulaması production kodunda mutlaka etkin olmalı
+
